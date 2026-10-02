@@ -1,0 +1,8 @@
+[project]
+name = "soc_case_manager"
+version = "0.1.0"
+description = "SOC Case Manager for advanced python course"
+requires-python = ">=3.9"
+authors = [
+    {name = "Gal"}
+]
