@@ -3,6 +3,17 @@ from datetime import datetime
 from typing import List, Dict
 
 
+def _require_record(data):
+    if not isinstance(data, dict):
+        raise ValueError("Record must be a JSON object")
+
+
+def _required_text(value, field):
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be a non-empty string")
+    return value.strip()
+
+
 class SecurityEvent(ABC):
     """מחלקה אבסטרקטית המייצגת אירוע אבטחה בסיסי"""
 
@@ -31,6 +42,11 @@ class NetworkEvent(SecurityEvent):
         self.suspicious_ip = suspicious_ip
         self.port = port
 
+    @classmethod
+    def from_dict(cls, data):
+        _require_record(data)
+        return cls(data['event_id'], data['timestamp'], data['source'], data['suspicious_ip'], data['port'])
+
     def get_risk_level(self) -> int:
         # פולימורפיזם: אירועי רשת מקבלים ציון סיכון שונה בהתאם לפורט
         if self.port in [22, 3389]:  # SSH או RDP
@@ -45,6 +61,11 @@ class EndpointEvent(SecurityEvent):
         super().__init__(event_id, timestamp, source)
         self.malware_signature = malware_signature
 
+    @classmethod
+    def from_dict(cls, data):
+        _require_record(data)
+        return cls(data['event_id'], data['timestamp'], data['source'], data['malware_signature'])
+
     def get_risk_level(self) -> int:
         # פולימורפיזם: נוזקה בתחנת קצה היא ברמת סיכון גבוהה
         return 9
@@ -58,6 +79,11 @@ class InvestigationAction:
         self.description = description
         self.analyst_name = analyst_name
         self.action_time = datetime.now()
+
+    @classmethod
+    def from_dict(cls, data):
+        _require_record(data)
+        return cls(data['action_id'], data['description'], data['analyst_name'])
 
     def __str__(self):
         return f"[{self.action_time.strftime('%Y-%m-%d %H:%M')}] {self.analyst_name}: {self.description}"
@@ -74,8 +100,8 @@ class Incident:
     SEVERITY_SCORES = {"Low": 1, "Medium": 2, "High": 3, "Critical": 4}
 
     def __init__(self, incident_id: str, title: str, severity: str):
-        self.incident_id = incident_id
-        self.title = title
+        self.incident_id = _required_text(incident_id, 'incident_id')
+        self.title = _required_text(title, 'title')
 
         # אתחול דרך ה-Setters כדי להפעיל את הולידציה
         self._severity = None
@@ -92,7 +118,7 @@ class Incident:
 
     @status.setter
     def status(self, new_status: str):
-        if new_status not in self.VALID_STATUSES:
+        if not isinstance(new_status, str) or new_status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status '{new_status}'. Must be one of: {self.VALID_STATUSES}")
         self._status = new_status
 
@@ -102,7 +128,7 @@ class Incident:
 
     @severity.setter
     def severity(self, new_severity: str):
-        if new_severity not in self.VALID_SEVERITIES:
+        if not isinstance(new_severity, str) or new_severity not in self.VALID_SEVERITIES:
             raise ValueError(f"Invalid severity '{new_severity}'. Must be one of: {self.VALID_SEVERITIES}")
         self._severity = new_severity
 
@@ -128,13 +154,14 @@ class Incident:
     @classmethod
     def from_dict(cls, data: Dict) -> 'Incident':
         """בנאי אלטרנטיבי ליצירת אובייקט ממילון (לקראת טעינת ה-JSON)"""
+        _require_record(data)
         incident = cls(
-            incident_id=str(data['id']),
-            title=str(data['title']),
-            severity=str(data['severity'])
+            incident_id=data['id'],
+            title=data['title'],
+            severity=data['severity']
         )
         if 'status' in data:
-            incident.status = str(data['status'])
+            incident.status = data['status']
         return incident
 
     def __lt__(self, other: 'Incident') -> bool:
@@ -157,10 +184,15 @@ class Incident:
 class Task:
     """משימת המשך כחלק מתוכנית טיפול (הרחבה ל-4 סטודנטים)"""
     def __init__(self, task_id: str, description: str, assigned_team: str):
-        self.task_id = task_id
-        self.description = description
-        self.assigned_team = assigned_team
+        self.task_id = _required_text(task_id, 'task_id')
+        self.description = _required_text(description, 'description')
+        self.assigned_team = _required_text(assigned_team, 'assigned_team')
         self.is_completed = False
+
+    @classmethod
+    def from_dict(cls, data):
+        _require_record(data)
+        return cls(data['task_id'], data['description'], data['assigned_team'])
 
     def mark_completed(self):
         self.is_completed = True
@@ -176,10 +208,21 @@ class Task:
 class RemediationPlan:
     """תוכנית טיפול המאגדת משימות המשך (הרחבה ל-4 סטודנטים)"""
     def __init__(self, plan_id: str, incident_id: str):
-        self.plan_id = plan_id
-        self.incident_id = incident_id
+        self.plan_id = _required_text(plan_id, 'plan_id')
+        self.incident_id = _required_text(incident_id, 'incident_id')
         # הרכבה: תוכנית מכילה רשימת משימות
         self.tasks: List[Task] = []
+
+    @classmethod
+    def from_dict(cls, data):
+        _require_record(data)
+        plan = cls(data['plan_id'], data['incident_id'])
+        for task_data in data.get('tasks', []):
+            plan.add_task(Task.from_dict(task_data))
+        return plan
+
+    def __repr__(self):
+        return f"<RemediationPlan id={self.plan_id} incident={self.incident_id} tasks={len(self.tasks)}>"
 
     def add_task(self, task: Task):
         self.tasks.append(task)

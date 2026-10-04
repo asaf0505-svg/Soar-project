@@ -14,6 +14,7 @@ class RemediationManager:
 
     def load_tasks(self, file_path: str):
         """טוען משימות מקובץ, מוודא קשר לתיק קיים ובונה תוכניות טיפול"""
+        seen_ids = {task.task_id for plan in self.plans.values() for task in plan.tasks}
         with open(file_path, 'r', encoding='utf-8') as file:
             for line_num, line in enumerate(file, 1):
                 line = line.strip()
@@ -22,18 +23,19 @@ class RemediationManager:
 
                 try:
                     data = json.loads(line)
-                    task_id = str(data['task_id'])
-                    incident_id = str(data['incident_id'])
-                    description = str(data['description'])
-                    assigned_team = str(data['assigned_team'])
+                    task = Task.from_dict(data)
+                    task_id = task.task_id
+                    incident_id = data['incident_id']
+                    if not isinstance(incident_id, str) or not incident_id.strip():
+                        raise ValueError('incident_id must be a non-empty string')
+                    incident_id = incident_id.strip()
+                    if task_id in seen_ids:
+                        raise ValueError(f'Duplicate task ID: {task_id}; keeping first record')
 
                     # --- בדיקת קשרים ממשיים בין נתונים ---
                     if not self.processor.get_incident(incident_id):
                         print(f"[Warning] Task {task_id} skipped: Linked Incident {incident_id} does not exist.")
                         continue
-
-                    # יצירת המשימה
-                    task = Task(task_id, description, assigned_team)
 
                     # יצירה או עדכון של תוכנית הטיפול עבור התיק
                     plan_id = f"RP-{incident_id}"
@@ -41,6 +43,7 @@ class RemediationManager:
                         self.plans[plan_id] = RemediationPlan(plan_id, incident_id)
 
                     self.plans[plan_id].add_task(task)
+                    seen_ids.add(task_id)
 
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
                     print(f"Error reading task line {line_num}: {e}")

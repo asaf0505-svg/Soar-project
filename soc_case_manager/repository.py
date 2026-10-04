@@ -9,6 +9,7 @@ def load_incidents(file_path: str) -> List[Incident]:
     מדלג על שורות ריקות או רשומות לא חוקיות.
     """
     incidents = []
+    seen_ids = set()
 
     # שימוש ב-with open לפי הדרישות לפתיחה בטוחה של הקובץ
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -22,6 +23,9 @@ def load_incidents(file_path: str) -> List[Incident]:
                 data = json.loads(line)
                 # שימוש בבנאי החלופי שיצרנו
                 incident = Incident.from_dict(data)
+                if incident.incident_id in seen_ids:
+                    raise ValueError(f"Duplicate incident ID: {incident.incident_id}; keeping first record")
+                seen_ids.add(incident.incident_id)
                 incidents.append(incident)
 
             except json.JSONDecodeError:
