@@ -1,0 +1,15 @@
+{"id": "INC-001", "title": "Suspicious Login from Unknown IP", "severity": "Medium", "status": "Open"}
+{"id": "INC-002", "title": "Malware Detected on Endpoint", "severity": "Critical", "status": "In Progress"}
+{"id": "INC-003", "title": "Multiple Failed SSH Attempts", "severity": "High", "status": "Open"}
+{"id": "INC-004", "title": "Unusual Outbound Traffic", "severity": "High", "status": "In Progress"}
+{"id": "INC-005", "title": "Phishing Email Reported", "severity": "Low", "status": "Closed"}
+{"id": "INC-006", "title": "Privilege Escalation Attempt", "severity": "Critical", "status": "Open"}
+{"id": "INC-007", "title": "Database SQL Injection Alert", "severity": "High", "status": "Open"}
+{"id": "INC-008", "title": "Unauthorized Access to Shared Drive", "severity": "Medium", "status": "In Progress"}
+{"id": "INC-009", "title": "Ransomware Activity Detected", "severity": "Critical", "status": "Open"}
+{"id": "INC-010", "title": "Account Lockout due to brute force", "severity": "Low", "status": "Closed"}
+{"id": "INC-011", "title": "Data Exfiltration Warning", "severity": "Critical", "status": "In Progress"}
+{"id": "INC-012", "title": "VPN Connection from Anomalous Location", "severity": "Medium", "status": "Open"}
+{"id": "INC-013", "title": "Antivirus Disabled on Workstation", "severity": "High", "status": "Open"}
+{"id": "INC-014", "title": "Suspicious Scheduled Task Created", "severity": "Medium", "status": "Closed"}
+{"id": "INC-015", "title": "Compromised Credentials Found on Dark Web", "severity": "High", "status": "Open"}

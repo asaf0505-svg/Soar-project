@@ -1,0 +1,6 @@
+{"task_id": "T-101", "incident_id": "INC-002", "description": "Isolate infected endpoint from the network", "assigned_team": "IT Ops"}
+{"task_id": "T-102", "incident_id": "INC-002", "description": "Run full antivirus scan", "assigned_team": "Security"}
+{"task_id": "T-103", "incident_id": "INC-003", "description": "Block source IP in external firewall", "assigned_team": "Network"}
+{"task_id": "T-104", "incident_id": "INC-003", "description": "Reset compromised user passwords", "assigned_team": "Identity"}
+{"task_id": "T-105", "incident_id": "INC-011", "description": "Review DLP logs for extracted files", "assigned_team": "Security"}
+{"task_id": "T-106", "incident_id": "INC-999", "description": "Orphaned task - should trigger a warning", "assigned_team": "IT Ops"}
