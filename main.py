@@ -4,6 +4,7 @@ from soc_case_manager.processing import IncidentProcessor
 from soc_case_manager.iterators import IncidentCollection, create_lazy_pipeline
 from soc_case_manager.context_managers import IncidentInvestigationContext
 from soc_case_manager.models import InvestigationAction, NetworkEvent
+from soc_case_manager.reports import RemediationManager
 
 
 def main():
@@ -81,6 +82,29 @@ def main():
     except RuntimeError as e:
         print(f"החריגה נתפסה מחוץ ל-Context Manager: {e}")
         print(f"בדיקת הסטטוס לאחר הקריסה: {test_incident.status}")
+
+    # --- 6. הרחבה לרביעייה: תוכניות טיפול ומשימות ---
+    print("\n--- 6. תוכניות טיפול ומשימות מנע ---")
+    remediation = RemediationManager(processor)
+    remediation.load_tasks(os.path.join("data", "remediation_tasks.jsonl"))
+    for plan in remediation.plans.values():
+        print(f"תוכנית: {plan}; תיק מקושר: {processor.get_incident(plan.incident_id)}")
+        for task in plan.get_open_tasks():
+            print(f"  {task}")
+
+    print("\nדוח לפני השלמת משימה:")
+    remediation.display_report()
+    for plan in remediation.plans.values():
+        open_tasks = plan.get_open_tasks()
+        if open_tasks:
+            task = open_tasks[0]
+            print(f"לפני טיפול: {task}")
+            task.mark_completed()
+            print(f"אחרי טיפול: {task}")
+            print(f"נותרו בתוכנית {len(plan.get_open_tasks())} משימות פתוחות.")
+            break
+    print("\nדוח אחרי השלמת משימה:")
+    remediation.display_report()
 
     print("\n=== סיום ההדגמה ===")
 
