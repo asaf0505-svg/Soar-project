@@ -82,6 +82,17 @@ class ProjectChecks(unittest.TestCase):
         self.assertEqual(list(generator), [])
         self.assertEqual(list(generate_open_incidents(incidents)), incidents)
 
+    def test_collection_processing(self):
+        processor = IncidentProcessor()
+        incidents = [Incident('B', 'second', 'High'), Incident('A', 'first', 'High'), Incident('C', 'third', 'Low')]
+        incidents[0].status = 'Closed'
+        self.assertEqual([i.incident_id for i in processor.sort_by_severity_and_id(incidents)], ['A', 'B', 'C'])
+        self.assertEqual([i.status for i in processor.sort_by_status_lambda(incidents)], ['Closed', 'Open', 'Open'])
+        self.assertEqual(processor.get_unique_severities(incidents), {'High', 'Low'})
+        self.assertEqual(processor.extract_first_and_rest(incidents), (incidents[0], incidents[1:]))
+        self.assertEqual(processor.extract_first_and_rest([]), (None, []))
+        self.assertEqual(processor.demonstrate_set_operations(), {'INC-001', 'INC-002', 'INC-003', 'INC-004'})
+
     def test_sample_loading(self):
         incidents = load_incidents(ROOT / 'data/sample_data.jsonl')
         self.assertEqual(len(incidents), 15)
