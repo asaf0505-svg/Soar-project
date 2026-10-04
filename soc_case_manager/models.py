@@ -190,9 +190,14 @@ class Task:
         self.is_completed = False
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Dict) -> 'Task':
+        """בנאי אלטרנטיבי ליצירת משימה ממילון"""
         _require_record(data)
-        return cls(data['task_id'], data['description'], data['assigned_team'])
+        return cls(
+            task_id=data['task_id'],
+            description=data['description'],
+            assigned_team=data['assigned_team']
+        )
 
     def mark_completed(self):
         self.is_completed = True
@@ -222,7 +227,8 @@ class RemediationPlan:
         return plan
 
     def __repr__(self):
-        return f"<RemediationPlan id={self.plan_id} incident={self.incident_id} tasks={len(self.tasks)}>"
+        """תצוגת מצב שימושית לזמן פיתוח כנדרש"""
+        return f"<RemediationPlan plan_id={self.plan_id} incident_id={self.incident_id} tasks_count={len(self.tasks)}>"
 
     def add_task(self, task: Task):
         self.tasks.append(task)

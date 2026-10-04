@@ -115,25 +115,21 @@
 
 ## מפת קבצים ואחריויות
 
-```text
-main.py                         תרחיש ההדגמה המשולב בלבד
-soc_case_manager/
-  __init__.py                   הגדרת החבילה
-  models.py                     הישויות, הרכבה, פולימורפיזם ובנאים חלופיים
-  repository.py                 טעינת תיקי JSONL ואימות מזהים
-  processing.py                 אינדקס לפי מזהה, תורים, קבוצות ומיון
-  iterators.py                  Iterable, Iterator, yield ו־pipeline
-  context_managers.py           שינוי סטטוס בטוח במהלך חקירה
-  reports.py                    טעינת משימות, בדיקת קשרים ודוח עומס
-data/
-  sample_data.jsonl             15 תיקי חקירה סינתטיים
-  remediation_tasks.jsonl       6 משימות, אחת בעלת קשר חסר לצורך הדגמה
-tests/test_project.py           בדיקות אוטומטיות ללא ספריות חיצוניות
-README.md                       אפיון, החלטות תכנון והוראות
-AI_USAGE.md                     תיעוד שימושי AI ואימות
-pyproject.toml                  הגדרות הפרויקט
-.gitignore                     קבצים שאינם נכללים ב־Git
-```
+<ul dir="rtl">
+<li><code>main.py</code>: סקריפט הרצה מרכזי המדגים את כלל תרחישי המערכת.</li>
+<li><code>README.md</code> ו-<code>AI_USAGE.md</code>: תיעוד, אפיון המערכת והסברים על יצירת הנתונים.</li>
+<li><code>pyproject.toml</code> ו-<code>.gitignore</code>: הגדרות פרויקט וסביבת עבודה.</li>
+<li><code>data/sample_data.jsonl</code>: קובץ הנתונים הראשי למודל תיקי החקירה.</li>
+<li><code>data/remediation_tasks.jsonl</code>: קובץ נתונים משני להרחבת תוכניות הטיפול.</li>
+<li><code>soc_case_manager/__init__.py</code>: הגדרת התיקייה כחבילת קוד (Package).</li>
+<li><code>soc_case_manager/models.py</code>: מחלקות עסקיות (OOP, פולימורפיזם, תוכניות טיפול).</li>
+<li><code>soc_case_manager/repository.py</code>: טעינה הדרגתית של קבצים ובדיקות תקינות (Validation).</li>
+<li><code>soc_case_manager/processing.py</code>: ניהול אוספים, תור עדיפויות, מילונים ופעולות סט.</li>
+<li><code>soc_case_manager/iterators.py</code>: מחלקות Iterators מותאמים, גנרטורים וצינורות עיבוד עצלים.</li>
+<li><code>soc_case_manager/context_managers.py</code>: ניהול בטוח של משאבים באמצעות <code>with</code>.</li>
+<li><code>soc_case_manager/reports.py</code>: הפקת הדוח העסקי וניהול משימות מנע.</li>
+<li><code>tests/test_project.py</code>: בדיקות תפקוד, קלט שגוי והרצת ההדגמה.</li>
+</ul>
 
 החיפוש לפי מזהה מרוכז ב־`IncidentProcessor.get_incident` בתוך processing.py, כדי ששני התהליכים העסקיים ישתמשו באותו אינדקס. אין צורך בכפל אינדקס בתוך repository.py.
 
@@ -150,7 +146,7 @@ pyproject.toml                  הגדרות הפרויקט
 | צורך | מבנה | הסבר |
 |---|---|---|
 | רשומת סיכום של מזהה וחומרה | tuple | שני שדות קבועים שאינם משתנים במהלך ההצגה |
-| סדר טיפול רגיל | deque | טיפול בתיקים לפי הגעה מונע דילוג על תיק ותיק; main מוסיף ושלוף שלושה תיקים ובודק תור ריק |
+| סדר טיפול רגיל | deque | טיפול בתיקים לפי הגעה מונע דילוג על תיק ותיק; main מוסיף ושולף שלושה תיקים ובודק תור ריק |
 | סדר טיפול דחוף | heapq | חומרה גבוהה קודמת; __lt__ מגדיר אובייקט חמור כקטן יותר עבור min-heap, ומזהה שובר שוויון. הרשימה הפנימית אינה ממוינת במלואה |
 
 פעולות add/discard משנות set קיים; איחוד, set comprehension ו־sorted יוצרים אוספים חדשים. בפלט קבוצות ממוינות לצורכי תצוגה בלבד, ואין הסתמכות על סדר פנימי של set. `*rest` אוסף את יתר התיקים לאחר הפרדת הראשון.

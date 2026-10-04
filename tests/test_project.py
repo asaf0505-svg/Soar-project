@@ -44,6 +44,29 @@ class ProjectChecks(unittest.TestCase):
         self.assertEqual([i.incident_id for i in result], ['X', 'Y'])
         self.assertEqual(result[0].title, 'first')
 
+    def test_invalid_record_does_not_reserve_id(self):
+        rows = [{'id': 'X', 'title': 'invalid', 'severity': 'invalid'},
+                {'id': 'X', 'title': 'valid', 'severity': 'High'},
+                {'id': [], 'title': 'invalid', 'severity': 'High'},
+                {'id': {}, 'title': 'invalid', 'severity': 'High'}]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'records.jsonl'
+            path.write_text('\n'.join(json.dumps(row) for row in rows), encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = load_incidents(path)
+        self.assertEqual([(i.incident_id, i.title) for i in result], [('X', 'valid')])
+
+    def test_demo_empty_and_sparse_input(self):
+        for rows in [[], [{'id': 'X', 'title': 'one', 'severity': 'Low', 'status': 'Closed'}]]:
+            with self.subTest(rows=rows), tempfile.TemporaryDirectory() as folder:
+                data = Path(folder) / 'data'
+                data.mkdir()
+                (data / 'sample_data.jsonl').write_text('\n'.join(json.dumps(row) for row in rows), encoding='utf-8')
+                (data / 'remediation_tasks.jsonl').write_text('', encoding='utf-8')
+                result = subprocess.run([sys.executable, '-B', str(ROOT / 'main.py')], cwd=folder,
+                    env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, capture_output=True, text=True, encoding='utf-8')
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_task_validation_and_repeat_loading(self):
         processor = IncidentProcessor()
         processor.build_index([Incident('X', 'case', 'High')])
@@ -71,7 +94,7 @@ class ProjectChecks(unittest.TestCase):
         self.assertEqual(incident.calculate_total_risk(), 17)
         self.assertEqual(incident.get_actions_by_analyst('demo'), [action])
         self.assertEqual(len(plan.get_open_tasks()), 1)
-        self.assertIn('incident=X', repr(plan))
+        self.assertIn('incident_id=X', repr(plan))
 
     def test_yield_continuation_and_exhaustion(self):
         from soc_case_manager.iterators import generate_open_incidents
