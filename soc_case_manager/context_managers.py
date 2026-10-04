@@ -13,6 +13,7 @@ class IncidentInvestigationContext:
         self.original_status = incident.status
 
     def __enter__(self):
+        self.original_status = self.incident.status
         print(f"[Context Manager] מתחיל חקירה לתיק {self.incident.incident_id}. סטטוס שונה זמנית ל-In Progress.")
         self.incident.status = "In Progress"
         return self.incident

@@ -173,6 +173,22 @@ class ProjectChecks(unittest.TestCase):
                     raise RuntimeError('test failure')
         self.assertEqual(incident.status, 'Closed')
 
+    def test_context_restores_status_at_each_entry(self):
+        incident = Incident('X', 'case', 'High')
+        manager = IncidentInvestigationContext(incident)
+        incident.status = 'Closed'
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(RuntimeError):
+                with manager:
+                    raise RuntimeError('first failure')
+            self.assertEqual(incident.status, 'Closed')
+            with manager:
+                incident.status = 'Open'
+            with self.assertRaises(RuntimeError):
+                with manager:
+                    raise RuntimeError('second failure')
+        self.assertEqual(incident.status, 'Open')
+
     def test_remediation_reports(self):
         processor = IncidentProcessor()
         processor.build_index(load_incidents(ROOT / 'data/sample_data.jsonl'))
