@@ -6,3 +6,12 @@ requires-python = ">=3.9"
 authors = [
     {name = "Gal"}
 ]
+
+dependencies = [
+    "requests>=2.31,<3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8,<10",
+]
