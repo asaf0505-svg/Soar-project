@@ -40,12 +40,15 @@ class ReviewTaskObserver:
         if plan is None:
             plan = RemediationPlan(plan_id, event.incident_id)
             self.manager.plans[plan_id] = plan
-        if not any(task.task_id == task_id for task in plan.tasks):
-            plan.add_task(Task(
-                task_id,
-                f"Review external IP reputation for incident {event.incident_id}",
-                "Security",
-            ))
+        for task in plan.tasks:
+            if task.task_id == task_id:
+                task.is_completed = False
+                return
+        plan.add_task(Task(
+            task_id,
+            f"Review external IP reputation for incident {event.incident_id}",
+            "Security",
+        ))
 
 
 class RiskAuditObserver:
