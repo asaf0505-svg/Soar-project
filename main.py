@@ -136,6 +136,20 @@ def main():
         print(">> דוח אחרי השלמת משימה:")
         remediation_manager.display_report()
 
+    # Stage 2 is additive: all existing stage 1 demonstration steps above remain.
+    from soc_case_manager.stage2_demo import run_stage2_demo
+    import sys
+    if "--live" in sys.argv:
+        from argparse import ArgumentParser
+        parser = ArgumentParser(description="SOC case manager live reputation demo")
+        parser.add_argument("--live", action="store_true")
+        parser.add_argument("--ip", required=True)
+        parser.add_argument("--incident-id", default=None)
+        args = parser.parse_args()
+        run_stage2_demo(incidents, live=True, incident_id=args.incident_id, ip_address=args.ip)
+    else:
+        run_stage2_demo(incidents)
+
     print("\n=== סיום ההדגמה ===")
 
 
