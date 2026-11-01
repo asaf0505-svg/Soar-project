@@ -56,3 +56,17 @@ def test_nonexistent_incident_is_not_sent_to_api(setup_service):
     decision = ReputationService(client, manager).evaluate("missing", "8.8.8.8")
     assert decision.status == "invalid"
     client.check_ip.assert_not_called()
+
+
+def test_completed_review_reopens_on_new_high_risk_result(setup_service):
+    incident, manager = setup_service
+    client = Mock()
+    client.check_ip.return_value = IPReputation("8.8.8.8", 90)
+    service = ReputationService(client, manager)
+    service.evaluate(incident.incident_id, "8.8.8.8")
+    task = manager.plans["RP-INC-X"].tasks[0]
+    task.mark_completed()
+    assert task.is_completed
+    service.evaluate(incident.incident_id, "8.8.8.8")
+    assert len(manager.plans["RP-INC-X"].tasks) == 1
+    assert not task.is_completed
