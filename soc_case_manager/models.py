@@ -19,7 +19,6 @@ class SecurityEvent(ABC):
 
     def __init__(self, event_id: str, timestamp: str, source: str):
         self.event_id = event_id
-        # נשמור כמחרוזת בשביל הפשטות של הטעינה מה-JSON, או נמיר ל-datetime
         self.timestamp = timestamp
         self.source = source
 
@@ -57,12 +56,11 @@ class NetworkEvent(SecurityEvent):
             data["timestamp"],
             data["source"],
             data["suspicious_ip"],
-            data["port"]
+            data["port"],
         )
 
     def get_risk_level(self) -> int:
-        # פולימורפיזם: אירועי רשת מקבלים ציון סיכון שונה בהתאם לפורט
-        if self.port in [22, 3389]:  # SSH או RDP
+        if self.port in [22, 3389]:
             return 8
         return 4
 
@@ -87,11 +85,10 @@ class EndpointEvent(SecurityEvent):
             data["event_id"],
             data["timestamp"],
             data["source"],
-            data["malware_signature"]
+            data["malware_signature"],
         )
 
     def get_risk_level(self) -> int:
-        # פולימורפיזם: נוזקה בתחנת קצה היא ברמת סיכון גבוהה
         return 9
 
 
@@ -115,7 +112,7 @@ class InvestigationAction:
         return cls(
             data["action_id"],
             data["description"],
-            data["analyst_name"]
+            data["analyst_name"],
         )
 
     def __str__(self):
@@ -133,11 +130,12 @@ class Incident:
 
     VALID_STATUSES = {"Open", "In Progress", "Closed"}
     VALID_SEVERITIES = {"Low", "Medium", "High", "Critical"}
+
     SEVERITY_SCORES = {
         "Low": 1,
         "Medium": 2,
         "High": 3,
-        "Critical": 4
+        "Critical": 4,
     }
 
     def __init__(
@@ -156,17 +154,17 @@ class Incident:
             "title"
         )
 
-        # אתחול דרך ה-Setters כדי להפעיל את הולידציה
         self._severity = None
         self.severity = severity
 
         self._status = "Open"
 
-        # Stage 2:
-        # תיק שנסגר באמצעות close() שומר את סיכום הטיפול.
+        # Stage 2 - closure with treatment summary
         self.resolution_summary = None
 
-        # הרכבה: התיק מכיל אוספים של פעולות ואירועים
+        # Stage 2 - analyst assignment
+        self.assigned_analyst = None
+
         self.actions: List[InvestigationAction] = []
         self.events: List[SecurityEvent] = []
 
@@ -180,6 +178,43 @@ class Incident:
         )
 
         self.status = "Closed"
+
+    def assign_to(self, analyst_name):
+        """
+        משייך Incident פנוי לאנליסט.
+        """
+        analyst_name = _required_text(
+            analyst_name,
+            "analyst_name"
+        )
+
+        if self.assigned_analyst is not None:
+            raise ValueError(
+                "Incident is already assigned"
+            )
+
+        self.assigned_analyst = analyst_name
+
+    def transfer_to(self, analyst_name):
+        """
+        מעביר Incident מאנליסט קיים לאנליסט אחר.
+        """
+        analyst_name = _required_text(
+            analyst_name,
+            "analyst_name"
+        )
+
+        if self.assigned_analyst is None:
+            raise ValueError(
+                "Incident must be assigned before transfer"
+            )
+
+        if self.assigned_analyst == analyst_name:
+            raise ValueError(
+                "Incident is already assigned to this analyst"
+            )
+
+        self.assigned_analyst = analyst_name
 
     @property
     def status(self) -> str:
@@ -215,8 +250,6 @@ class Incident:
 
         self._severity = new_severity
 
-    # --- פעולות על האוספים (הרכבה) ---
-
     def add_action(self, action: InvestigationAction):
         self.actions.append(action)
 
@@ -227,7 +260,6 @@ class Incident:
         self,
         analyst_name: str
     ) -> List[InvestigationAction]:
-        """חיפוש באוסף הפריטים"""
         return [
             action
             for action in self.actions
@@ -236,9 +268,7 @@ class Incident:
 
     def calculate_total_risk(self) -> int:
         """
-        חישוב נתון מסכם תוך שימוש בפולימורפיזם:
-        אנו קוראים ל-get_risk_level ללא צורך לדעת
-        אם זה NetworkEvent או EndpointEvent.
+        חישוב הסיכון הכולל באמצעות פולימורפיזם.
         """
         return sum(
             event.get_risk_level()
@@ -247,13 +277,12 @@ class Incident:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "Incident":
-        """בנאי אלטרנטיבי ליצירת אובייקט ממילון"""
         _require_record(data)
 
         incident = cls(
             incident_id=data["id"],
             title=data["title"],
-            severity=data["severity"]
+            severity=data["severity"],
         )
 
         if "status" in data:
@@ -263,14 +292,13 @@ class Incident:
 
     def __lt__(self, other: "Incident") -> bool:
         """
-        השוואה בין תיקים לצורך תור עדיפויות.
-        תיק 'קטן' יותר הוא למעשה תיק בעל חומרה גבוהה יותר.
+        השוואה בין תיקים לצורך Priority Queue.
+        חומרה גבוהה יותר מקבלת עדיפות.
         """
         if (
             self.SEVERITY_SCORES[self.severity]
             == self.SEVERITY_SCORES[other.severity]
         ):
-            # שובר שוויון: אם החומרה זהה, נמיין לפי המזהה
             return self.incident_id < other.incident_id
 
         return (
@@ -296,7 +324,7 @@ class Incident:
 
 
 class Task:
-    """משימת המשך כחלק מתוכנית טיפול (הרחבה ל-4 סטודנטים)"""
+    """משימת המשך כחלק מתוכנית טיפול"""
 
     def __init__(
         self,
@@ -323,13 +351,12 @@ class Task:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "Task":
-        """בנאי אלטרנטיבי ליצירת משימה ממילון"""
         _require_record(data)
 
         return cls(
             task_id=data["task_id"],
             description=data["description"],
-            assigned_team=data["assigned_team"]
+            assigned_team=data["assigned_team"],
         )
 
     def mark_completed(self):
@@ -358,7 +385,7 @@ class Task:
 
 
 class RemediationPlan:
-    """תוכנית טיפול המאגדת משימות המשך (הרחבה ל-4 סטודנטים)"""
+    """תוכנית טיפול המאגדת משימות המשך"""
 
     def __init__(
         self,
@@ -375,7 +402,6 @@ class RemediationPlan:
             "incident_id"
         )
 
-        # הרכבה: תוכנית מכילה רשימת משימות
         self.tasks: List[Task] = []
 
     @classmethod
@@ -394,20 +420,10 @@ class RemediationPlan:
 
         return plan
 
-    def __repr__(self):
-        """תצוגת מצב שימושית לזמן פיתוח כנדרש"""
-        return (
-            f"<RemediationPlan "
-            f"plan_id={self.plan_id} "
-            f"incident_id={self.incident_id} "
-            f"tasks_count={len(self.tasks)}>"
-        )
-
     def add_task(self, task: Task):
         self.tasks.append(task)
 
     def get_open_tasks(self) -> List[Task]:
-        """מחזיר רק משימות שטרם הושלמו"""
         return [
             task
             for task in self.tasks
@@ -419,4 +435,12 @@ class RemediationPlan:
             f"Remediation Plan {self.plan_id} "
             f"for Incident {self.incident_id} "
             f"({len(self.tasks)} tasks)"
+        )
+
+    def __repr__(self):
+        return (
+            f"<RemediationPlan "
+            f"plan_id={self.plan_id} "
+            f"incident_id={self.incident_id} "
+            f"tasks_count={len(self.tasks)}>"
         )
