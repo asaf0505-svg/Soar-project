@@ -61,3 +61,29 @@ Codex בדק עותק נקי של הקבצים השמורים ב־Git, ללא ה
 GitHub Actions הורץ בהצלחה על Python 3.9 ו־Python 3.12. במהלך העבודה התברר כי `ubuntu-latest` עבר ל־Ubuntu 26.04, שבו Python 3.9 לא היה זמין ל־`setup-python`. ה־workflow קובע ל־`ubuntu-24.04`, ולאחר התיקון שתי גרסאות Python עברו בהצלחה.
 
 בוצעה גם בדיקה אמיתית מול AbuseIPDB API. המפתח הוגדר במשתנה הסביבה `ABUSEIPDB_API_KEY` ולא נשמר בקוד או במאגר. בבדיקה של `8.8.8.8` התקבל `abuseConfidenceScore` של `0`, והמערכת החזירה החלטת `low-risk` ללא יצירת משימת Review חדשה. בכך אומת בפועל המסלול מה־NetworkEvent, דרך השירות החיצוני ועד להחלטה העסקית.
+
+## הרחבת AbuseIPDB וה־Streamlit Workbench — 2.11.2026
+
+נעשה שימוש ב־ChatGPT לצורך בחינת מבנה ממשק SOC case-centric ולבחינת הרחבת נתוני ה־enrichment של AbuseIPDB.
+
+### הצעות שנבדקו
+
+- הצגת enrichment כחלק מ־Notes ו־Observables של Incident ולא כפלט API נפרד.
+- הרחבת `IPReputation` עם metadata נוסף כגון מספר דיווחים, מספר מדווחים, whitelist, ISP, usage type, domain, country ו־last reported.
+- שמירה על ההפרדה בין `AbuseIPDBClient`, שאחראי על התקשורת עם השירות החיצוני, לבין `ReputationService`, שאחראי על ההחלטה העסקית.
+- שמירת ה־API key מחוץ למאגר באמצעות Streamlit secrets או environment variable.
+
+### אימות שבוצע
+
+- כל הבדיקות האוטומטיות הורצו מחדש לאחר השינויים.
+- התוצאה הסופית הייתה: `57 passed, 2 subtests passed`.
+- בוצעה קריאת Live אמיתית ל־AbuseIPDB עבור `1.1.1.1`.
+- אומת שתוצאת ה־enrichment נכנסת אוטומטית ל־Notes של הקייס ומופיעה גם כ־Observable.
+- נבדק ש־`.streamlit/secrets.toml` נמצא ב־`.gitignore` ואינו מיועד ל־commit.
+
+### החלטות שהתקבלו
+
+- ה־GUI נשאר שכבת הצגה ואינו עוקף את הלוגיקה העסקית.
+- לא נוספו פעולות containment אוטומטיות.
+- לא מסיקים ש־IP הוא זדוני רק משום שקיימים עליו דיווחים.
+- ההחלטה העסקית ממשיכה להתבסס על הנתונים המאומתים ועל מדיניות הסיכון של המערכת.

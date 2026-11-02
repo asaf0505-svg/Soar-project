@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import ipaddress
 import logging
 import time
+from typing import Optional
 
 import requests
 
@@ -43,27 +44,87 @@ def require_public_ip(value: str) -> str:
     return str(address)
 
 
+def _optional_text(data: dict, field: str) -> str:
+    value = data.get(field)
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ExternalDataFailure(f"Invalid {field}")
+    return value.strip()
+
+
+def _optional_nullable_text(data: dict, field: str) -> Optional[str]:
+    value = data.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ExternalDataFailure(f"Invalid {field}")
+    return value.strip() or None
+
+
+def _optional_non_negative_int(data: dict, field: str) -> int:
+    value = data.get(field, 0)
+    if type(value) is not int or value < 0:
+        raise ExternalDataFailure(f"Invalid {field}")
+    return value
+
+
+def _optional_bool(data: dict, field: str, *, default=None):
+    value = data.get(field, default)
+    if value is None:
+        return None
+    if type(value) is not bool:
+        raise ExternalDataFailure(f"Invalid {field}")
+    return value
+
+
 @dataclass(frozen=True)
 class IPReputation:
     ip_address: str
     abuse_confidence_score: int
+    is_whitelisted: Optional[bool] = None
+    total_reports: int = 0
+    num_distinct_users: int = 0
+    isp: str = ""
+    usage_type: str = ""
+    domain: str = ""
+    country_code: str = ""
+    is_tor: Optional[bool] = None
+    last_reported_at: Optional[str] = None
 
     @classmethod
     def from_payload(cls, payload: object, requested_ip: str) -> "IPReputation":
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
             raise ExternalDataFailure("Missing or invalid data object")
+
         data = payload["data"]
         returned_ip = data.get("ipAddress")
+
         try:
             normalized_ip = require_public_ip(returned_ip)
         except ValueError as error:
             raise ExternalDataFailure("Missing or invalid returned IP") from error
+
         if normalized_ip != requested_ip:
             raise ExternalDataFailure("Returned IP does not match requested IP")
+
         score = data.get("abuseConfidenceScore")
         if type(score) is not int or not (0 <= score <= 100):
             raise ExternalDataFailure("Missing or invalid abuse confidence score")
-        return cls(ip_address=normalized_ip, abuse_confidence_score=score)
+
+        return cls(
+            ip_address=normalized_ip,
+            abuse_confidence_score=score,
+            is_whitelisted=_optional_bool(data, "isWhitelisted"),
+            total_reports=_optional_non_negative_int(data, "totalReports"),
+            num_distinct_users=_optional_non_negative_int(data, "numDistinctUsers"),
+            isp=_optional_text(data, "isp"),
+            usage_type=_optional_text(data, "usageType"),
+            domain=_optional_text(data, "domain"),
+            country_code=_optional_text(data, "countryCode"),
+            is_tor=_optional_bool(data, "isTor"),
+            last_reported_at=_optional_nullable_text(data, "lastReportedAt"),
+        )
 
 
 class AbuseIPDBClient:
@@ -92,6 +153,7 @@ class AbuseIPDBClient:
 
     def check_ip(self, ip_address: str) -> IPReputation:
         ip_address = require_public_ip(ip_address)
+
         for attempt in range(1, self._max_attempts + 1):
             try:
                 response = self._session.get(
@@ -101,7 +163,11 @@ class AbuseIPDBClient:
                     timeout=self._timeout,
                 )
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
-                LOGGER.warning("Reputation API transport failure on attempt %s/%s", attempt, self._max_attempts)
+                LOGGER.warning(
+                    "Reputation API transport failure on attempt %s/%s",
+                    attempt,
+                    self._max_attempts,
+                )
                 if attempt == self._max_attempts:
                     raise ExternalConnectionFailure(
                         "Reputation service unreachable after retry budget"
@@ -112,14 +178,21 @@ class AbuseIPDBClient:
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as error:
-                LOGGER.warning("Reputation API HTTP failure: status=%s", getattr(response, "status_code", "unknown"))
-                raise ExternalHTTPFailure("Reputation service returned an HTTP error") from error
+                LOGGER.warning(
+                    "Reputation API HTTP failure: status=%s",
+                    getattr(response, "status_code", "unknown"),
+                )
+                raise ExternalHTTPFailure(
+                    "Reputation service returned an HTTP error"
+                ) from error
 
             try:
                 payload = response.json()
             except ValueError as error:
                 LOGGER.warning("Reputation API returned non-JSON content")
-                raise ExternalJSONFailure("Reputation response is not valid JSON") from error
+                raise ExternalJSONFailure(
+                    "Reputation response is not valid JSON"
+                ) from error
 
             return IPReputation.from_payload(payload, ip_address)
 

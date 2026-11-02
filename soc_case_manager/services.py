@@ -26,6 +26,7 @@ class ReputationDecision:
     score: Optional[int] = None
     task_id: Optional[str] = None
     reason: str = ""
+    reputation: Optional[IPReputation] = None
 
 
 class ReputationService:
@@ -122,6 +123,7 @@ class ReputationService:
                 incident_id,
                 "low-risk",
                 score=score,
+                reputation=reputation,
             )
 
         self.publisher.publish(
@@ -137,6 +139,7 @@ class ReputationService:
             "high-risk",
             score=score,
             task_id=f"IP-REVIEW-{incident_id}",
+            reputation=reputation,
         )
 
     def evaluate_network_event(

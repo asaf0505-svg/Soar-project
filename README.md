@@ -385,3 +385,54 @@ tests/
 ```
 
 שלב 1 נשמר ולא הוחלף; שלב 2 מוסיף את השירות החיצוני, תבניות התכנון, המקביליות, תהליך ה־Incident והאינטגרציה עם Remediation.
+
+### Streamlit Analyst Workbench
+
+נוסף ממשק Streamlit אופציונלי שמציג את יכולות המערכת כ־SOC case-management workbench.
+
+הממשק מאפשר:
+- צפייה וסינון של תיקי חקירה.
+- שיוך והעברת Incident בין אנליסטים.
+- ניהול state של הקייס.
+- הוספת Notes ותיעוד פעולות חקירה.
+- צפייה ב־Observables ובמשימות Remediation.
+- הרצת IP reputation enrichment במצב Offline או מול AbuseIPDB האמיתי.
+- תיעוד אוטומטי של תוצאת ה־enrichment בתוך Notes של הקייס.
+
+הממשק הוא שכבת הצגה מעל הלוגיקה העסקית הקיימת. נתוני GUI נוספים נשמרים ב־Streamlit session ואינם מהווים מסד נתונים קבוע.
+
+להפעלת הממשק:
+
+`python -m streamlit run streamlit_app.py`
+
+לשימוש ב־Live AbuseIPDB יש להגדיר את המשתנה:
+
+`ABUSEIPDB_API_KEY`
+
+המפתח אינו נשמר במאגר.
+
+### Live AbuseIPDB Validation
+
+בוצעה בדיקה אמיתית בתאריך 2.11.2026 מול AbuseIPDB עבור הכתובת `1.1.1.1`.
+
+בבדיקה התקבלו בין היתר:
+- Abuse Confidence Score: `0%`
+- Reports in the configured 90-day window: `204`
+- Distinct reporters: `61`
+- Whitelisted: `Yes`
+- ISP: `APNIC and Cloudflare DNS Resolver project`
+- Usage Type: `Content Delivery Network`
+- Domain: `cloudflare.com`
+- Business Decision: `low-risk`
+
+הבדיקה ממחישה שמספר דיווחים לבדו אינו מספיק כדי להסיק ש־IP הוא זדוני. הערכים מגיעים משירות חיצוני חי ולכן עשויים להשתנות עם הזמן.
+
+### Final Automated Test Result
+
+פקודת הבדיקה הסופית:
+
+`.venv\Scripts\python.exe -m pytest -q --basetemp=.pytest_tmp`
+
+תוצאה:
+
+`57 passed, 2 subtests passed in 3.36s`

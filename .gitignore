@@ -6,3 +6,5 @@ __pycache__/
 .env
 *.egg-info/
 .pytest_tmp/
+.streamlit/secrets.toml
+.streamlit/
