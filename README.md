@@ -192,20 +192,24 @@ git log --oneline --graph --all
 **שני תרחישים לבדיקות עסקיות בהמשך:** (א) ציון 85 לתיק תקין שאין לו משימת בדיקת IP ייצור בדיוק משימה אחת; (ב) כשל בבדיקת ה־API לא ייצור משימה ולא ישנה את נתוני התיק. התוצאות הצפויות ייבדקו מול דרישות העסק ולא ייגזרו מתוך המימוש עצמו.
 
 
-### 2. מימוש שלב 2 — מצב ביניים
+### 2. מימוש שלב 2 — מצב סופי
+**אימות חיבור אמיתי ל־AbuseIPDB:** בתאריך 2.11.2026 בוצעה הרצה אמיתית מול AbuseIPDB API באמצעות מפתח API שנשמר כמשתנה סביבה בלבד ולא הועלה למאגר. ההרצה בוצעה באמצעות:
 
-> התוספות נכתבו בענף נפרד. בדיקות אוטומטיות עברו, אך חיבור HTTP אמיתי מול AbuseIPDB טרם אומת עם מפתח API; אין להציגו כמאומת או את הענף כהגשה סופית.
+```bash
+python main.py --live --ip 8.8.8.8 --incident-id INC-001
+```
 
-- `soc_case_manager/api_client.py`: GET ל-AbuseIPDB, timeout, `raise_for_status`, בדיקת JSON, אימות IP וציון, ועד שלושה ניסיונות על שגיאות תקשורת בלבד.
-- `soc_case_manager/config.py` ו-`.env.example`: מפתח API ממשתנה סביבה, ללא מפתח שמור בריפוזיטורי.
-- `soc_case_manager/services.py`: תהליך עסקי משולב; ציון גבוה יוצר משימת בדיקה אנושית מקושרת, בלי לשנות חומרה/סטטוס אוטומטית; כשל אינו יוצר משימה.
-- `soc_case_manager/strategies.py`: Strategy עם שתי מדיניות סף חלופיות.
-- `soc_case_manager/observers.py`: Observer שמפיץ אירוע אחד גם למנהל משימות טיפול וגם לרישום בדיקות סיכון.
-- `soc_case_manager/async_processing.py`: סימולציה של שלוש בדיקות עצמאיות, סדרתית ואסינכרונית, תוך שמירה על סדר התוצאה.
-- `soc_case_manager/threaded_processing.py`: כמה Threads מתחרים על אותו תיק, עם Lock סביב בדיקה ועדכון.
-- `soc_case_manager/integrated_reports.py`: מדד מספר התיקים בסיכון חיצוני גבוה שיש להם משימת בדיקה פתוחה; הדוח של שלב 1 לא שונה.
-- `soc_case_manager/stage2_demo.py`: הדגמה מדומה ללא רשת כברירת מחדל; אפשרות מפורשת לבדיקה אמיתית.
-- `tests/test_api_client.py`, `test_services.py`, `test_patterns.py`, `test_async_processing.py`, `test_threaded_processing.py`, `test_integration.py`: בדיקות pytest חדשות, בנוסף לבדיקות שלב 1 שנותרו בקובץ נפרד.
+המערכת יצרה `NetworkEvent` המקושר ל־`INC-001`, השתמשה בכתובת ה־IP מתוך האירוע ושלחה אותה לשירות החיצוני. AbuseIPDB החזיר `abuseConfidenceScore` של `0`. בהתאם למדיניות העסקית המוגדרת בפרויקט, התוצאה סווגה כ־`low-risk`, לא נוצרה משימת Review חדשה ולא בוצע שינוי אוטומטי בחומרה או בסטטוס של התיק.
+
+פלט מרכזי מההרצה:
+
+```text
+Network event linked to incident: STAGE2-NET-001 -> INC-001; IP=8.8.8.8
+Source: LIVE AbuseIPDB API; incident: INC-001; decision: low-risk; score: 0
+Combined report after enrichment: {'high_risk_with_open_review': 0}
+```
+
+מפתח ה־API עצמו אינו מתועד ואינו נשמר בקוד או ב־Git.
 
 **פקודות להתקנה ולהרצה (משורש הפרויקט, Python 3.9 ומעלה):**
 
