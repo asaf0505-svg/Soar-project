@@ -1,438 +1,783 @@
-# הצעת הפרויקט
+# SOC Case Manager
 
-**שם ותיאור:** SOC Case Manager — מערכת מקומית לניהול ותעדוף תיקי חקירה של אירועי אבטחת מידע.
+מערכת מקומית לניהול, תיעוד ותעדוף תיקי חקירה של אירועי אבטחת מידע.
 
-**הצורך העסקי:** צוותי אבטחה מטפלים באירועים רבים. ריכוז המידע והפעולות מסייע למנוע הזנחת תיקים ולהבחין בין טיפול שוטף לטיפול דחוף.
+הפרויקט נבנה במסגרת קורס **תכנות מתקדם** ומדגים OOP, מבני נתונים, Iterators ו־Generators, Context Managers, שירות חיצוני, Design Patterns, בדיקות ו־TDD, Async, Threads וסנכרון.
 
-**משתמשים:** אנליסט מתעד אירועים ופעולות חקירה; מנהל צוות בוחן תיקים דחופים ועומס משימות; צוותי IT מטפלים במשימות מנע. בגרסה המקומית המשתמשים מיוצגים בשמות ובתפקידים, ללא מערכת הרשאות.
+## מטרת המערכת
 
-**התהליך המרכזי:** תיקי חקירה נטענים מנתוני דוגמה, מסווגים לפי חומרה וסטטוס ומועברים לטיפול לפי סדר הגעה או עדיפות. לחקירה מצורפים אירועי אבטחה ופעולות. שינוי הסטטוס מתאר התקדמות; במקרה של כשל במהלך חקירה מוחזר המצב הקודם. התוצאה היא מידע מסודר על התיקים ופעולות הטיפול.
+צוות SOC מטפל במספר רב של אירועי אבטחה במקביל. מטרת המערכת היא לרכז את המידע והפעולות סביב Incident אחד, לאפשר תיעוד מסודר של החקירה, לתעדף תיקים ולנהל משימות המשך.
 
-**זרימת מידע:** הקלט הוא תיקי חקירה ומשימות סינתטיים מקובצי JSONL. האנליסט מוסיף פעולות ומשנה מצב; משימות מסומנות כהושלמו. הפלט כולל סדר טיפול, ספירת תיקים לפי חומרה ודוח משימות פתוחות לפי צוות. בשלב זה העדכונים נשמרים בזיכרון בלבד.
+המערכת אינה מבצעת חקירת סייבר או containment אוטומטי. היא מספקת מידע ותהליך עבודה שתומכים בהחלטת האנליסט.
 
-**ערך עסקי:** צמצום טעויות במעקב, תמיכה בתעדוף ועזרה למנהל בזיהוי עומס.
+### משתמשים מרכזיים
 
-**ישויות וקשרים:** תיק חקירה מכיל אירועי רשת או תחנת קצה ופעולות חקירה. תוכנית טיפול מקושרת לתיק ומכילה משימות המשויכות לצוותים. שם האנליסט מתועד בפעולת החקירה.
+- **SOC Analyst** — מנהל Incident, מתעד פעולות ומבצע בדיקות Enrichment.
+- **SOC Lead** — בוחן תיקים דחופים ועומס משימות.
+- **Remediation / IT Teams** — מטפלים במשימות המשך שנוצרו עבור Incident.
 
-**שני תרחישים:** (1) אנליסט מטפל בתיק דחוף, מתעד פעולה ומשנה את מצבו. (2) מנהל מזהה עומס בדוח משימות המנע, צוות משלים משימה והדוח משקף את הירידה בעומס.
+---
 
-**הרחבה עתידית:** קליטת אירועים משירות SIEM חיצוני ושמירה מתמשכת של העדכונים.
+# שלב 1
 
-## הרחבה לקבוצה של ארבעה
+## מודל המערכת
 
-שתי הישויות הנוספות הן `RemediationPlan` ו־`Task`. הקובץ `data/remediation_tasks.jsonl` מקשר כל משימה לתיק באמצעות `incident_id`. הטעינה בודקת שהתיק קיים ומאגדת משימות לתוכנית טיפול. שלוש פעולות עסקיות הן הוספת משימה לתוכנית, איתור משימות פתוחות והשלמת משימה; בנוסף מופק דוח עומס לפי צוות.
+הישות המרכזית היא `Incident`.
 
-התהליך מתחיל בטעינת משימות תקינות לתוכנית הקשורה לתיק. כל משימה מתחילה ב־Pending ועוברת ל־Done באמצעות `mark_completed()`. ב־`main.py` מוצגים התוכניות והקשרים, דוח לפני טיפול, השלמת משימה ודוח מעודכן. התוצאה היא ירידה במספר המשימות הפתוחות של הצוות. רשומת T-106 מפנה בכוונה לתיק INC-999 שאינו קיים; היא מדגימה אזהרה ודילוג. הדוח מציג משימות פתוחות לפי צוות, לא איחורים: בגרסה הזאת אין תאריכי יעד.
+Incident מכיל:
 
-<h2 dir="rtl">12. החלטות תכנון: מודל מונחה עצמים (OOP)</h2>
-<p dir="rtl">
-<strong>הורשה ופולימורפיזם:</strong> יצרנו מחלקת בסיס אבסטרקטית <code>SecurityEvent</code>, ממנה יורשות המחלקות <code>NetworkEvent</code> ו-<code>EndpointEvent</code>. הפולימורפיזם בא לידי ביטוי במתודה <code>calculate_total_risk</code> בתיק החקירה – היא עוברת על רשימת האירועים וקוראת ל-<code>get_risk_level()</code> של כל אירוע, מבלי להזדקק למשפטי <code>if/elif</code> לבדיקת סוג האובייקט.
-<br>
-<strong>הרכבה (Composition):</strong> מחלקת <code>Incident</code> מכילה בתוכה אוספים של פעולות חקירה (<code>InvestigationAction</code>) ושל אירועי אבטחה. האוספים מנוהלים דרך מתודות ייעודיות כמו <code>add_action</code>.
-</p>
+- אירועי אבטחה (`SecurityEvent`).
+- פעולות חקירה (`InvestigationAction`).
+- Severity ו־Status.
+- אנליסט משויך.
+- סיכום טיפול בעת סגירת התיק.
 
-<h2 dir="rtl">13. טבלת מבני נתונים</h2>
-<table dir="rtl">
-  <tr>
-    <th>צורך</th>
-    <th>מבנה שנבחר</th>
-    <th>מדוע הוא מתאים</th>
-  </tr>
-  <tr>
-    <td>אחסון אוסף התיקים והפעולות</td>
-    <td><code>List</code></td>
-    <td>מאפשר סדר שמירה מוגדר, הוספה קלה בסוף הרשימה וגישה לפי אינדקס.</td>
-  </tr>
-  <tr>
-    <td>ניהול תור טיפול לפי זמן הגעה</td>
-    <td><code>deque</code> (FIFO)</td>
-    <td>שליפה מראש התור (<code>popleft</code>) מתבצעת בסיבוכיות O(1), בניגוד לרשימה רגילה.</td>
-  </tr>
-  <tr>
-    <td>ניהול תור טיפול דחוף</td>
-    <td><code>heapq</code> (Priority Queue)</td>
-    <td>מאפשר לשלוף תמיד את התיק בעל החומרה הגבוהה ביותר ביעילות (O(log n)), תוך שימוש בשובר שוויון (ID).</td>
-  </tr>
-  <tr>
-    <td>איתור תיק לפי מזהה (ID)</td>
-    <td><code>Dict</code></td>
-    <td>מספק גישה מיידית ב-O(1) מבלי לסרוק את כל האוסף, וכן משמש לקיבוץ וספירה (כמו ספירת תיקים לפי חומרה).</td>
-  </tr>
-  <tr>
-    <td>שמירת רמות חומרה ייחודיות</td>
-    <td><code>Set</code></td>
-    <td>מבטיח חוסר כפילויות ומאפשר בדיקת שייכות (<code>in</code>) ופעולות איחוד/חיתוך בצורה יעילה ומהירה.</td>
-  </tr>
-</table>
+`SecurityEvent` היא מחלקת בסיס אבסטרקטית שממנה יורשים:
 
-<h2 dir="rtl">14. טבלת פעולות המשנות אוסף לעומת יוצרות חדש</h2>
-<table dir="rtl">
-  <tr>
-    <th>פעולה</th>
-    <th>משנה את האוסף הקיים (In-Place)</th>
-    <th>יוצרת אוסף חדש</th>
-  </tr>
-  <tr>
-    <td><code>append()</code> / <code>popleft()</code> ב-deque</td>
-    <td>כן</td>
-    <td>לא</td>
-  </tr>
-  <tr>
-    <td><code>heappush()</code> / <code>heappop()</code> ב-heapq</td>
-    <td>כן</td>
-    <td>לא</td>
-  </tr>
-  <tr>
-    <td>List / Dict Comprehensions</td>
-    <td>לא</td>
-    <td>כן</td>
-  </tr>
-  <tr>
-    <td>פעולת <code>sorted()</code></td>
-    <td>לא</td>
-    <td>כן</td>
-  </tr>
-</table>
+- `NetworkEvent`
+- `EndpointEvent`
 
-<h2 dir="rtl">15. עיבוד הנתונים וניהול משאבים</h2>
-<p dir="rtl">
-<strong>טעינת נתונים (Lazy Reading):</strong> קריאת קובץ ה-JSONL מבוצעת שורה אחר שורה באופן הדרגתי בתוך בלוק <code>with open</code>, כאשר כל שורה מומרת לאובייקט עם טיפול שגיאות הדוק למניעת קריסה.
-<br>
-<strong>Iterables ו-Iterators:</strong> מומשו המחלקות <code>IncidentCollection</code> ו-<code>IncidentIterator</code> המאפשרות מעבר עצמאי על הנתונים כך שכל קריאה ל-<code>iter()</code> מחזירה מצביע חדש לחלוטין שרץ במקביל.
-<br>
-<strong>Generator ו-Pipeline עצל:</strong> ה-Pipeline מסנן תיקים קריטיים שנמצאים בטיפול ומחזיר רק את המזהה שלהם. העיבוד מתחיל רק כשקוראים ל-<code>next()</code>, ואינו יוצר רשימות ביניים בזיכרון.
-<br>
-<strong>Context Manager:</strong> המחלקה <code>IncidentInvestigationContext</code> מנהלת את הסטטוס של התיק. אם מתרחשת חריגה בזמן העבודה, פעולת היציאה תופסת אותה ומחזירה את הסטטוס לקדמותו כדי למנוע השחתת נתונים, ועדיין מאפשרת לחריגה להמשיך הלאה ולהיות מטופלת מחוץ לבלוק.
-</p>
+כל סוג Event מממש בעצמו את `get_risk_level()`, ולכן `Incident.calculate_total_risk()` יכול לחשב את הסיכון הכולל באמצעות פולימורפיזם ללא בדיקת סוג האובייקט.
 
-<h2 dir="rtl">16. הוראות הרצה</h2>
-<p dir="rtl">
-1. נדרשת סביבת Python בגרסה 3.9 ומעלה.<br>
-2. ודאו שהתיקייה <code>data/</code> מכילה את הקובץ <code>sample_data.jsonl</code>.<br>
-3. הריצו מהשורש את הפקודה: <code>python main.py</code>.<br>
-4. אין צורך בהתקנת ספריות חיצוניות (requirements.txt אינו נדרש).
-</p>
+בנוסף קיימת תת־מערכת Remediation הכוללת:
 
-## מפת קבצים ואחריויות
+- `RemediationPlan`
+- `Task`
 
-<ul dir="rtl">
-<li><code>main.py</code>: סקריפט הרצה מרכזי המדגים את כלל תרחישי המערכת.</li>
-<li><code>README.md</code> ו-<code>AI_USAGE.md</code>: תיעוד, אפיון המערכת והסברים על יצירת הנתונים.</li>
-<li><code>pyproject.toml</code> ו-<code>.gitignore</code>: הגדרות פרויקט וסביבת עבודה.</li>
-<li><code>data/sample_data.jsonl</code>: קובץ הנתונים הראשי למודל תיקי החקירה.</li>
-<li><code>data/remediation_tasks.jsonl</code>: קובץ נתונים משני להרחבת תוכניות הטיפול.</li>
-<li><code>soc_case_manager/__init__.py</code>: הגדרת התיקייה כחבילת קוד (Package).</li>
-<li><code>soc_case_manager/models.py</code>: מחלקות עסקיות (OOP, פולימורפיזם, תוכניות טיפול).</li>
-<li><code>soc_case_manager/repository.py</code>: טעינה הדרגתית של קבצים ובדיקות תקינות (Validation).</li>
-<li><code>soc_case_manager/processing.py</code>: ניהול אוספים, תור עדיפויות, מילונים ופעולות סט.</li>
-<li><code>soc_case_manager/iterators.py</code>: מחלקות Iterators מותאמים, גנרטורים וצינורות עיבוד עצלים.</li>
-<li><code>soc_case_manager/context_managers.py</code>: ניהול בטוח של משאבים באמצעות <code>with</code>.</li>
-<li><code>soc_case_manager/reports.py</code>: הפקת הדוח העסקי וניהול משימות מנע.</li>
-<li><code>tests/test_project.py</code>: בדיקות תפקוד, קלט שגוי והרצת ההדגמה.</li>
-</ul>
+כל תוכנית טיפול מקושרת ל־Incident ויכולה להכיל מספר משימות המשויכות לצוותים שונים.
 
-החיפוש לפי מזהה מרוכז ב־`IncidentProcessor.get_incident` בתוך processing.py, כדי ששני התהליכים העסקיים ישתמשו באותו אינדקס. אין צורך בכפל אינדקס בתוך repository.py.
+---
 
-## הנתונים והבדיקות
+## נתוני הדגמה
 
-לפי תיעוד יצירת הנתונים ב־AI_USAGE.md, קובץ התיקים נוצר באמצעות Gemini. כל שורה היא אובייקט JSON עם `id`, `title`, `severity`, `status`. המזהה והכותרת הם מחרוזות לא ריקות; חומרה היא Low/Medium/High/Critical וסטטוס הוא Open/In Progress/Closed. סטטוס חסר מקבל Open. השדות האחרים חובה. רשומת משימה כוללת `task_id`, `incident_id`, `description`, `assigned_team`, כולם טקסט לא ריק.
+הנתונים נמצאים בתיקיית `data/`.
 
-שורה נקראת בתוך `with open(..., encoding="utf-8")`, מומרת למילון ב־json.loads ואז לאובייקט בבנאי from_dict. JSON פגום, ערך שאינו אובייקט, שדות חובה חסרים וערכים לא חוקיים גורמים לאזהרה ולדילוג. הטעינה שומרת את הרשומה התקינה הראשונה לכל מזהה ומדלגת על כפילויות. אותו כלל חל על משימות, גם בטעינה חוזרת. קשר לתיק שאינו קיים מסונן. בבניית אינדקס מרשימה שסופקה ישירות ל־processing, המדיניות הנפרדת היא שהאובייקט האחרון לאותו מזהה מחליף את הקודם; הנתונים מהטוען כבר ייחודיים.
+### `data/sample_data.jsonl`
 
-הקריאה מהקובץ היא שורה־שורה, אבל תוצאת load_incidents היא רשימה מלאה בזיכרון; זו אינה הבטחה שכל המערכת צורכת זיכרון קבוע.
+מכיל 15 Incidents סינתטיים.
 
-## החלטות נוספות על אוספים
+כל רשומה כוללת:
 
-| צורך | מבנה | הסבר |
+- `id`
+- `title`
+- `severity`
+- `status`
+
+### `data/remediation_tasks.jsonl`
+
+מכיל משימות Remediation המקושרות ל־Incident באמצעות `incident_id`.
+
+הרשומה `T-106` מפנה בכוונה ל־`INC-999`, שאינו קיים, כדי להדגים Validation של קשר לא תקין בין הישויות.
+
+אין בפרויקט מידע אישי אמיתי.
+
+---
+
+## OOP
+
+### הורשה ופולימורפיזם
+
+`SecurityEvent` היא מחלקה אבסטרקטית.
+
+`NetworkEvent` ו־`EndpointEvent` יורשות ממנה ומממשות באופן שונה:
+
+`get_risk_level()`
+
+`Incident.calculate_total_risk()` מפעיל את המתודה על כל Event בלי לדעת מה הסוג הספציפי שלו.
+
+### Composition
+
+`Incident` מחזיק אוספים של:
+
+- `SecurityEvent`
+- `InvestigationAction`
+
+`RemediationPlan` מחזיק אוסף של `Task`.
+
+---
+
+## מבני נתונים
+
+| צורך | מבנה | שימוש בפרויקט |
 |---|---|---|
-| רשומת סיכום של מזהה וחומרה | tuple | שני שדות קבועים שאינם משתנים במהלך ההצגה |
-| סדר טיפול רגיל | deque | טיפול בתיקים לפי הגעה מונע דילוג על תיק ותיק; main מוסיף ושולף שלושה תיקים ובודק תור ריק |
-| סדר טיפול דחוף | heapq | חומרה גבוהה קודמת; __lt__ מגדיר אובייקט חמור כקטן יותר עבור min-heap, ומזהה שובר שוויון. הרשימה הפנימית אינה ממוינת במלואה |
+| שמירת אירועים ופעולות | `list` | אוספים בתוך Incident |
+| טיפול לפי סדר הגעה | `deque` | FIFO Queue |
+| טיפול לפי חומרה | `heapq` | Priority Queue |
+| איתור Incident לפי ID | `dict` | אינדקס ב־`IncidentProcessor` |
+| שמירת ערכים ייחודיים | `set` | לדוגמה Severity ייחודי |
+| רשומת סיכום קבועה | `tuple` | מזהה + Severity |
 
-פעולות add/discard משנות set קיים; איחוד, set comprehension ו־sorted יוצרים אוספים חדשים. בפלט קבוצות ממוינות לצורכי תצוגה בלבד, ואין הסתמכות על סדר פנימי של set. `*rest` אוסף את יתר התיקים לאחר הפרדת הראשון.
+המימוש המרכזי נמצא ב־`soc_case_manager/processing.py`.
 
-## Generator ו־Pipeline — מה בדיוק מודגם
+---
 
-`generate_open_incidents` משתמש ב־yield. עצם יצירת הגנרטור אינה מריצה את הגוף. main צורך תוצאה ב־next ואז ממשיך באותו אובייקט עם for; מעבר חוזר לאחר מיצוי מחזיר אפס תוצאות. כדי להתחיל שוב יש ליצור גנרטור חדש.
+## Iterators, Generators ו־Lazy Processing
 
-ב־pipeline יש סינון לפי Critical, סינון לפי In Progress והמרה למזהה. next מתחיל או מחדש את העבודה בכל השלבים. main מבקש שתי תוצאות בלבד — בקובץ המצורף INC-002 ו־INC-011 — ולכן רשומות INC-012 עד INC-015 אינן מעובדות ב־pipeline לאחר העצירה. הן כבר נטענו לרשימה על ידי הטוען. list comprehension היה מעבד את כל האוסף ובונה רשימת תוצאות מיד; Generator Expression צורך נתונים לפי בקשה, ללא רשימות ביניים. האיטרטור מתקדם ואינו חוזר לאחור, ולכן מעבר נוסף מהתחלה דורש יצירת pipeline חדש.
+ב־`soc_case_manager/iterators.py` קיימים:
 
-## הרצה ובדיקות
+### Iterator מותאם
 
-יש להריץ משורש המאגר, כאשר שני קובצי data קיימים:
+- `IncidentCollection`
+- `IncidentIterator`
 
-```sh
-python main.py
-python -m unittest discover -s tests -v
-git log --oneline --graph --all
-```
+`IncidentIterator` מממש `__iter__()` ו־`__next__()`, וכל קריאה ל־`iter()` יוצרת Iterator עצמאי.
 
-נדרשת Python 3.9 ומעלה. ההרצה והבדיקות אומתו ב־Python 3.12.14. אין תלות חיצונית להתקנה. הודעת RuntimeError בהדגמה ואזהרת המשימה המקושרת לתיק חסר הן תרחישים מכוונים; התוכנית ממשיכה ומסתיימת כרגיל.
+### Generator
 
-לפני ההגשה יש לצרף את פלט Git לקישור המאגר ולוודא שהצעת חלק א הוגשה בנפרד ואושרה. בדיקות אוטומטיות אינן מחליפות הבנה והסבר אישי של הקוד.
+`generate_open_incidents()` משתמש ב־`yield` ומחזיר Incidents פתוחים אחד בכל פעם.
 
-## שלב 2
+### Lazy Pipeline
 
-### 1. הרחבה עסקית
+`create_lazy_pipeline()` מבצע שלושה שלבים ללא יצירת רשימות ביניים:
 
-בשלב 2 הורחבה מערכת SOC Case Manager כך שאירוע רשת (`NetworkEvent`) המקושר ל־Incident יכול לעבור בדיקת מוניטין חיצונית לכתובת ה־IP שלו.
+1. סינון Incidents מסוג Critical.
+2. סינון Incidents שנמצאים ב־`In Progress`.
+3. החזרת `incident_id`.
 
-המערכת משתמשת ב־AbuseIPDB API לצורך קבלת `abuseConfidenceScore` עבור כתובת IP ציבורית. המידע החיצוני משמש כתמיכה בהחלטת האנליסט ואינו מבצע חקירה או תגובה אוטומטית.
+---
 
-כאשר הציון עומד במדיניות הסיכון שנבחרה, נוצרה משימת Review אנושית בתת־מערכת ה־Remediation. המערכת אינה חוסמת IP, אינה משנה Severity ואינה סוגרת Incident אוטומטית.
+## Context Manager
 
-כשל בשירות החיצוני אינו גורם לעדכון עסקי שגוי: במקרה של Timeout, ConnectionError, HTTP error, JSON לא תקין או נתונים חסרים, לא נוצרת משימת Review חדשה ולא משתנים נתוני ה־Incident.
+ב־`soc_case_manager/context_managers.py` מומש:
 
-### 2. שירות חיצוני ו־Retry
+`IncidentInvestigationContext`
 
-התקשורת מול AbuseIPDB נמצאת ב־`soc_case_manager/api_client.py`, בנפרד מהלוגיקה העסקית שב־`services.py`.
+בכניסה לחקירה ה־Incident עובר זמנית ל־`In Progress`.
 
-לקוח ה־API מבצע:
+אם מתרחשת חריגה במהלך החקירה, `__exit__()` מחזיר את ה־Status שהיה לפני הכניסה, והחריגה ממשיכה החוצה לטיפול נוסף.
 
-- בקשת GET עם `params` ו־`timeout`.
-- `raise_for_status()` עבור תגובות HTTP לא תקינות.
-- פענוח JSON ואימות מבנה התשובה.
-- אימות שה־IP שהוחזר תואם ל־IP שהתבקש.
-- אימות ש־`abuseConfidenceScore` הוא מספר שלם בין 0 ל־100.
-- המרת התוצאה לאובייקט `IPReputation`.
+---
 
-Timeout ו־ConnectionError מקבלים Retry של עד שלושה ניסיונות בסך הכול, עם המתנה בין ניסיונות. שגיאות HTTP או נתונים לא תקינים אינן עוברות Retry אוטומטי.
+# שלב 2
 
-מפתח ה־API נקרא רק ממשתנה הסביבה `ABUSEIPDB_API_KEY` ואינו נשמר בקוד או במאגר.
+## 1. הרחבה עסקית
 
-### 3. Design Patterns
+בשלב 2 הורחב התהליך העסקי כך ש־`NetworkEvent` המקושר ל־Incident יכול לעבור בדיקת Reputation של כתובת IP מול שירות חיצוני אמיתי — **AbuseIPDB**.
 
-בשלב 2 מומשו שתי תבניות תכנון:
-
-**Strategy** — מדיניות ההחלטה האם ציון AbuseIPDB דורש Review מופרדת מהשירות העסקי. קיימות לפחות שתי אסטרטגיות חלופיות עם ממשק משותף, וניתן להזריק את האסטרטגיה מבחוץ.
-
-**Observer** — זיהוי אירוע סיכון גבוה מפעיל אירוע `HighRiskDetected`. האירוע נשלח ליותר ממגיב אחד: Observer אחד מנהל את משימת ה־Remediation ו־Observer נוסף מתעד את ציון הסיכון לצורך הדוח המשולב.
-
-התלויות העיקריות מוזרקות מבחוץ ל־`ReputationService`, כך שהלוגיקה העסקית אינה יוצרת ישירות את לקוח ה־HTTP.
-
-### 4. שילוב עם NetworkEvent ו־Remediation
-
-כתובת ה־IP הנבדקת מגיעה מ־`NetworkEvent` המקושר ל־Incident.
-
-`ReputationService.evaluate_network_event()` בודק שהאירוע אכן שייך ל־Incident לפני שהוא שולח את כתובת ה־IP לשירות החיצוני. אירוע שאינו מקושר לתיק נדחה ולא גורם לקריאת API או ליצירת משימה.
-
-כאשר מתקבל ציון גבוה, Observer יוצר או פותח מחדש משימת Review מסוג:
+זרימת המידע המרכזית:
 
 ```text
-IP-REVIEW-<incident_id>
+Incident
+    ↓
+NetworkEvent
+    ↓
+AbuseIPDB
+    ↓
+IPReputation
+    ↓
+ReputationService
+    ↓
+Risk Strategy
+    ↓
+Low Risk / High Risk
 ```
 
-המשימה מקושרת ל־RemediationPlan של אותו Incident.
+אם מתקבלת החלטת High Risk:
 
-### 5. תהליך Incident
+```text
+HighRiskDetected
+      ↓
+Observer
+      ↓
+Remediation Review Task + Audit
+```
 
-בשלב 2 נוספו גם פעולות עסקיות מפורשות ל־Incident:
+המידע החיצוני משמש לקבלת החלטה עסקית ואינו מוצג בלבד.
 
-- `assign_to()` — שיוך תיק לאנליסט.
-- `transfer_to()` — העברת תיק מאנליסט אחד לאחר.
-- `close(resolution_summary)` — סגירת תיק תוך חובה לשמור סיכום טיפול לא ריק.
+המערכת אינה:
 
-פעולות אלה משלימות את תהליך העבודה של האנליסט ושומרות על Validation בתוך המודל העסקי.
+- חוסמת IP אוטומטית.
+- משנה Severity אוטומטית.
+- סוגרת Incident אוטומטית.
 
-### 6. Async ו־Threads
+במקרה של כשל בשירות החיצוני, המערכת אינה יוצרת החלטת סיכון או משימת טיפול על בסיס מידע שלא התקבל.
 
-#### Async
+---
 
-מומשו שלוש משימות עצמאיות של בדיקות סיכון מדומות.
+## 2. שירות חיצוני — AbuseIPDB
 
-המערכת מריצה את אותם נתונים בשתי צורות:
+התקשורת עם AbuseIPDB נמצאת ב־:
+
+`soc_case_manager/api_client.py`
+
+הלקוח מבצע:
+
+- בקשת HTTP `GET`.
+- שליחת Parameters.
+- שימוש ב־`timeout`.
+- `raise_for_status()`.
+- פענוח JSON.
+- אימות מבנה ושדות.
+- אימות שה־IP שהוחזר הוא ה־IP שהתבקש.
+- אימות ש־`abuseConfidenceScore` הוא מספר בין 0 ל־100.
+- המרת התוצאה ל־`IPReputation`.
+
+בנוסף נשמר Metadata כגון:
+
+- Whitelist status.
+- Total reports.
+- Distinct reporters.
+- ISP.
+- Usage type.
+- Domain.
+- Country.
+- Tor status.
+- Last reported time.
+
+### טיפול בכשלים
+
+המערכת מבחינה בין:
+
+- Timeout / Connection Error.
+- HTTP Error.
+- JSON לא תקין.
+- נתונים לא תקינים.
+
+רק `Timeout` ו־`ConnectionError` מקבלים Retry אוטומטי, עד **3 ניסיונות בסך הכול**.
+
+HTTP Error או מידע לא תקין אינם מקבלים Retry אוטומטי.
+
+---
+
+## 3. הפרדת תקשורת מהלוגיקה העסקית
+
+התקשורת החיצונית נמצאת ב־`api_client.py`.
+
+הלוגיקה העסקית נמצאת ב־`services.py`.
+
+`AbuseIPDBClient` אחראי להשגת המידע ולאימותו.
+
+`ReputationService` אחראי להחליט מה לעשות עם המידע שכבר התקבל ונבדק.
+
+הפרדה זו מאפשרת:
+
+- להחליף שירות חיצוני בלי לשכתב את הלוגיקה העסקית.
+- לבדוק את הלוגיקה באמצעות Mock.
+- לשמור על אחריות ברורה לכל רכיב.
+
+---
+
+## 4. Design Patterns
+
+### Strategy
+
+מיקום:
+
+`soc_case_manager/strategies.py`
+
+ה־Strategy קובעת איזה Abuse Confidence Score דורש Review.
+
+קיימות שתי אסטרטגיות:
+
+- `ThresholdRiskStrategy`
+- `StrictRiskStrategy`
+
+ברירת המחדל של `ThresholdRiskStrategy` היא סף 80.
+
+ברירת המחדל של `StrictRiskStrategy` היא סף 60.
+
+כך ניתן לשנות את מדיניות הסיכון בלי לשנות את `ReputationService`.
+
+### Observer
+
+מיקום:
+
+`soc_case_manager/observers.py`
+
+כאשר מתקבלת החלטת High Risk נוצר:
+
+`HighRiskDetected`
+
+ה־`HighRiskPublisher` מודיע למספר Observers:
+
+- `ReviewTaskObserver` — יוצר או פותח מחדש משימת Review.
+- `RiskAuditObserver` — שומר את אירוע הסיכון לצורך Audit ודיווח.
+
+Observer אינו מנגנון מקביליות. מטרתו לאפשר למספר רכיבים להגיב לאותו Event בלי ליצור תלות חזקה ביניהם.
+
+---
+
+## 5. Dependency Injection
+
+`ReputationService` מקבל מבחוץ את התלויות המרכזיות שלו:
+
+- API Client.
+- Risk Strategy.
+- Publisher / Observers.
+- Remediation Manager.
+
+כך ניתן, לדוגמה, להעביר Client מדומה בבדיקות במקום לבצע קריאת רשת אמיתית.
+
+---
+
+## 6. שילוב עם NetworkEvent ו־Remediation
+
+בדיקת Reputation אינה מתבצעת על IP מנותק מהמערכת.
+
+המתודה:
+
+`ReputationService.evaluate_network_event()`
+
+בודקת:
+
+1. שה־Incident קיים.
+2. שהאובייקט הוא `NetworkEvent`.
+3. שה־NetworkEvent באמת שייך לאותו Incident.
+4. רק לאחר מכן משתמשת ב־`event.suspicious_ip`.
+
+כאשר מתקבלת החלטת High Risk, `ReviewTaskObserver` יוצר או פותח מחדש:
+
+`IP-REVIEW-<incident_id>`
+
+בתוך:
+
+`RP-<incident_id>`
+
+כלומר המידע החיצוני משפיע בפועל על תת־מערכת ה־Remediation.
+
+אם השירות החיצוני נכשל, לא נוצרת משימת Review על בסיס מידע שלא התקבל.
+
+---
+
+## 7. תהליך Incident
+
+בשלב 2 נוספו פעולות עסקיות מפורשות:
+
+- `assign_to()`
+- `transfer_to()`
+- `close()`
+
+### Assign
+
+Incident פנוי יכול להיות משויך לאנליסט.
+
+### Transfer
+
+Incident שכבר משויך יכול לעבור לאנליסט אחר.
+
+### Close
+
+סגירת Incident דורשת `resolution_summary`.
+
+לא ניתן לסגור תיק עם סיכום טיפול ריק.
+
+---
+
+## 8. Async
+
+מיקום:
+
+`soc_case_manager/async_processing.py`
+
+מומשות לפחות שלוש בדיקות עצמאיות מדומות.
+
+אותם נתונים מורצים בשתי דרכים:
 
 - Sequential.
-- Concurrent באמצעות `asyncio`.
+- Concurrent.
 
-בגרסה המקבילית כל המשימות מתוזמנות לפני איסוף התוצאות, והתוצאות מוחזרות בסדר הקלט גם כאשר זמני הסיום שונים.
+בגרסה המקבילית משתמשים ב־:
 
-#### Threads + Lock
+- `asyncio.create_task()`
+- `asyncio.gather()`
 
-מומש תרחיש שבו שני אנליסטים מנסים לתפוס את אותו Incident בו־זמנית.
+המשימות יכולות להסתיים בזמנים שונים, אך התוצאות מוחזרות לפי סדר הקלט.
 
-אותו `Lock` מגן על פעולת ה־check-and-update כולה, ולכן רק אנליסט אחד יכול לקבל את התיק. בדיקות המקביליות אינן מניחות איזה Thread ינצח אלא בודקות שרק הקצאה אחת הצליחה ושהמצב הסופי תקין.
+---
 
-### 7. דוח עסקי משולב
+## 9. Threads ו־Lock
 
-`integrated_reports.py` מפיק את המדד:
+מיקום:
+
+`soc_case_manager/threaded_processing.py`
+
+התרחיש מדמה שני Analysts שמנסים לבצע Claim לאותו Incident באותו זמן.
+
+המשאב המשותף הוא מילון `assignments`.
+
+אותו `threading.Lock()` מגן על פעולת:
 
 ```text
-high_risk_with_open_review
+Check → Update
 ```
 
-המדד מייצג את מספר התיקים בעלי ציון סיכון חיצוני גבוה שעדיין קיימת עבורם משימת Review פתוחה.
+לכן רק Analyst אחד יכול לקבל את אותו Incident.
 
-ה־Stage 2 demo מציג את השינוי במדד לאורך התהליך:
+הבדיקה אינה מניחה איזה Thread ינצח — רק שבסיום קיימת הקצאה אחת תקינה.
+
+---
+
+## 10. הדוח העסקי המשולב
+
+מיקום:
+
+`soc_case_manager/integrated_reports.py`
+
+המדד החדש הוא:
+
+`high_risk_with_open_review`
+
+הוא מייצג:
+
+**מספר Incidents שזוהו כ־High Risk ועדיין קיימת עבורם משימת Review פתוחה.**
+
+דוגמת זרימה:
 
 ```text
-Before enrichment: 0
-High-risk result + Review task created: 1
-Manual review completed: 0
+לפני Enrichment: 0
+High Risk + Review Task: 1
+Review הושלם: 0
 ```
 
-כך המידע החיצוני משפיע בפועל גם על תת־מערכת ה־Remediation וגם על דוח התומך בהחלטת מנהל הצוות.
+המדד מאפשר ל־SOC Lead לזהות כמה אירועים בסיכון גבוה עדיין ממתינים לטיפול ידני.
 
-### 8. בדיקות
+---
 
-הפרויקט משתמש ב־pytest עבור בדיקות שלב 2 ושומר גם את בדיקות שלב 1.
+## 11. בדיקות
 
-הבדיקות כוללות בין היתר:
+הפרויקט משתמש ב־`pytest`.
 
-- לוגיקה עסקית וערכי קצה.
+קיימות בדיקות עבור:
+
+- התנהגויות של שלב 1.
+- לוגיקה עסקית.
+- ערכי קצה וקלט לא תקין.
+- Fixtures.
 - `pytest.raises`.
 - `pytest.mark.parametrize`.
 - `tmp_path`.
-- Mock של השירות החיצוני.
-- API success/failure.
+- Mock של שירות חיצוני.
+- הצלחת API.
 - Timeout ו־Retry.
-- HTTP error.
-- JSON ומבנה נתונים לא תקינים.
-- Strategy ו־Observer.
+- HTTP Error.
+- JSON לא תקין.
+- נתונים חסרים או שגויים.
+- Strategy.
+- Observer.
 - Async.
-- Threads ו־Lock.
-- סגירת Incident עם resolution summary.
-- שיוך והעברת Incident בין אנליסטים.
-- קשר בין NetworkEvent ל־Incident.
-- ארבע בדיקות האינטגרציה הנדרשות להרחבת רביעייה.
+- Threads + Lock.
+- Incident assignment ו־transfer.
+- Incident closure.
+- NetworkEvent → Reputation.
+- שילוב עם Remediation.
+- הדוח העסקי המשולב.
 
-בריצה הסופית ב־GitHub Actions שתי גרסאות Python — 3.9 ו־3.12 — עברו בהצלחה. בריצת Python 3.12 התקבל:
+בנוסף קיימות ארבע בדיקות האינטגרציה הנדרשות לרביעייה:
 
-```text
-55 passed, 2 subtests passed
+1. תהליך משולב שמסתיים בהצלחה.
+2. כשל בשירות החיצוני והתגובה העסקית.
+3. קשר לא תקין בין נתוני שתי המערכות.
+4. נכונות המדד החדש בדוח.
+
+### תוצאה סופית
+
+הרצת הבדיקות הסופית בגרסה הנוכחית:
+
+```cmd
+.venv\Scripts\python.exe -m pytest -q --basetemp=.pytest_tmp
 ```
-
-### 9. TDD
-
-בוצע תהליך Red → Green → Refactor עבור היכולת לפתוח מחדש משימת IP Review שכבר הושלמה כאשר מתקבל אירוע סיכון גבוה חדש.
-
-- Red — commit `7939f1c`
-- Green — commit `2cb1433`
-- Refactor — commit `ba78002`
-
-קיים ב־GitHub Actions תיעוד של ריצת Red שנכשלה ושל הרצות Green ו־Refactor שעברו.
-
-### 10. אימות AbuseIPDB אמיתי
-
-בתאריך 2.11.2026 בוצעה הרצה אמיתית מול AbuseIPDB API.
-
-הפקודה:
-
-```bash
-python main.py --live --ip 8.8.8.8 --incident-id INC-001
-```
-
-יצרה `NetworkEvent` המקושר ל־`INC-001` ושלחה את כתובת ה־IP מתוך האירוע לשירות.
-
-התוצאה שהתקבלה:
-
-```text
-Network event linked to incident: STAGE2-NET-001 -> INC-001; IP=8.8.8.8
-Source: LIVE AbuseIPDB API; incident: INC-001; decision: low-risk; score: 0
-Combined report after enrichment: {'high_risk_with_open_review': 0}
-```
-
-התקבל `abuseConfidenceScore` של `0`, ולכן בהתאם למדיניות העסקית המערכת החזירה `low-risk` ולא יצרה משימת Review.
-
-מפתח ה־API הוגדר במשתנה סביבה בלבד ולא נשמר בקוד או ב־Git.
-
-### 11. התקנה והרצה
-
-```bash
-python -m pip install -e ".[test]"
-python main.py
-python -m pytest -q
-```
-
-הרצת API אמיתי:
-
-```bash
-python main.py --live --ip 8.8.8.8 --incident-id INC-001
-```
-
-לפני הרצה אמיתית יש להגדיר את משתנה הסביבה:
-
-```text
-ABUSEIPDB_API_KEY
-```
-
-### 12. מבנה רכיבי שלב 2
-
-```text
-soc_case_manager/
-├── api_client.py
-├── async_processing.py
-├── config.py
-├── integrated_reports.py
-├── models.py
-├── observers.py
-├── services.py
-├── stage2_demo.py
-├── strategies.py
-└── threaded_processing.py
-
-tests/
-├── test_api_client.py
-├── test_async_processing.py
-├── test_incident_assignment.py
-├── test_incident_closure.py
-├── test_integration.py
-├── test_network_event_reputation.py
-├── test_patterns.py
-├── test_repository_pytest.py
-├── test_services.py
-└── test_threaded_processing.py
-```
-
-שלב 1 נשמר ולא הוחלף; שלב 2 מוסיף את השירות החיצוני, תבניות התכנון, המקביליות, תהליך ה־Incident והאינטגרציה עם Remediation.
-
-### Streamlit Analyst Workbench
-
-נוסף ממשק Streamlit אופציונלי שמציג את יכולות המערכת כ־SOC case-management workbench.
-
-הממשק מאפשר:
-- צפייה וסינון של תיקי חקירה.
-- שיוך והעברת Incident בין אנליסטים.
-- ניהול state של הקייס.
-- הוספת Notes ותיעוד פעולות חקירה.
-- צפייה ב־Observables ובמשימות Remediation.
-- הרצת IP reputation enrichment במצב Offline או מול AbuseIPDB האמיתי.
-- תיעוד אוטומטי של תוצאת ה־enrichment בתוך Notes של הקייס.
-
-הממשק הוא שכבת הצגה מעל הלוגיקה העסקית הקיימת. נתוני GUI נוספים נשמרים ב־Streamlit session ואינם מהווים מסד נתונים קבוע.
-
-להפעלת הממשק:
-
-`python -m streamlit run streamlit_app.py`
-
-לשימוש ב־Live AbuseIPDB יש להגדיר את המשתנה:
-
-`ABUSEIPDB_API_KEY`
-
-המפתח אינו נשמר במאגר.
-
-### Live AbuseIPDB Validation
-
-בוצעה בדיקה אמיתית בתאריך 2.11.2026 מול AbuseIPDB עבור הכתובת `1.1.1.1`.
-
-בבדיקה התקבלו בין היתר:
-- Abuse Confidence Score: `0%`
-- Reports in the configured 90-day window: `204`
-- Distinct reporters: `61`
-- Whitelisted: `Yes`
-- ISP: `APNIC and Cloudflare DNS Resolver project`
-- Usage Type: `Content Delivery Network`
-- Domain: `cloudflare.com`
-- Business Decision: `low-risk`
-
-הבדיקה ממחישה שמספר דיווחים לבדו אינו מספיק כדי להסיק ש־IP הוא זדוני. הערכים מגיעים משירות חיצוני חי ולכן עשויים להשתנות עם הזמן.
-
-### Final Automated Test Result
-
-פקודת הבדיקה הסופית:
-
-`.venv\Scripts\python.exe -m pytest -q --basetemp=.pytest_tmp`
 
 תוצאה:
 
-`57 passed, 2 subtests passed in 3.36s`
+```text
+57 passed, 2 subtests passed in 3.36s
+```
+
+GitHub Actions שימש במהלך פיתוח שלב 2 לבדיקת Python 3.9 ו־Python 3.12.
+
+ריצת ה־CI בוצעה לפני הרחבת ה־GUI וה־metadata האחרונה. לאחר השינויים האחרונים בוצעה הרצת הבדיקות המלאה מקומית והתוצאה הסופית היא זו המופיעה למעלה.
+
+הבדיקות אינן תלויות ברשת, ב־API key אמיתי או בהמתנות Retry אמיתיות.
+
+---
+
+## 12. TDD
+
+יכולת אחת פותחה בתהליך:
+
+```text
+Red → Green → Refactor
+```
+
+היכולת שנבחרה:
+
+אם משימת IP Review כבר הושלמה ומתקבלת שוב תוצאת High Risk חדשה עבור אותו Incident, המשימה צריכה להיפתח מחדש במקום ליצור כפילות.
+
+### Red
+
+Commit:
+
+`7939f1c`
+
+נוספה בדיקה שהמחישה את ההתנהגות החסרה.
+
+https://github.com/asaf0505-svg/Soar-project/commit/7939f1c418de46cd361e4645f72b83182821532e
+
+### Green
+
+Commit:
+
+`2cb1433`
+
+נוסף המימוש שפותח מחדש משימה קיימת.
+
+https://github.com/asaf0505-svg/Soar-project/commit/2cb14331d0cd54c94836f5ee03634f3ef9a189b5
+
+### Refactor
+
+Commit:
+
+`ba78002`
+
+שופר איתור המשימה הקיימת ללא שינוי ההתנהגות.
+
+https://github.com/asaf0505-svg/Soar-project/commit/ba78002a382041e2b9964b64c7f97150437db365
+
+---
+
+## 13. אימות מול AbuseIPDB אמיתי
+
+בוצעו בדיקות אמיתיות מול AbuseIPDB.
+
+### CLI
+
+דוגמת הרצה:
+
+```bash
+python main.py --live --ip 8.8.8.8 --incident-id INC-001
+```
+
+בבדיקה התקבל:
+
+```text
+abuseConfidenceScore = 0
+decision = low-risk
+```
+
+ולכן לא נוצרה משימת Review.
+
+### Streamlit Workbench
+
+בוצעה גם בדיקת Live עבור:
+
+`1.1.1.1`
+
+בזמן הבדיקה התקבלו בין היתר:
+
+```text
+Abuse Confidence Score: 0%
+Total Reports: 204
+Distinct Reporters: 61
+Whitelisted: Yes
+ISP: APNIC and Cloudflare DNS Resolver project
+Usage Type: Content Delivery Network
+Domain: cloudflare.com
+Business Decision: low-risk
+```
+
+נתוני AbuseIPDB הם נתונים חיים ולכן הערכים יכולים להשתנות עם הזמן.
+
+הבדיקה מדגימה גם שמספר דיווחים לבדו אינו מספיק כדי לקבוע ש־IP הוא זדוני; ההחלטה העסקית משתמשת בנתונים המאומתים ובמדיניות הסיכון.
+
+---
+
+## 14. Secrets
+
+מפתח AbuseIPDB אינו נשמר ב־GitHub.
+
+שם המשתנה:
+
+`ABUSEIPDB_API_KEY`
+
+קיים `.env.example` שמכיל רק את שם המשתנה וערך דוגמה.
+
+בנוסף:
+
+- `.env`
+- `.streamlit/secrets.toml`
+- `.streamlit/`
+
+מוגנים באמצעות `.gitignore`.
+
+---
+
+## 15. התקנה והרצה
+
+נדרשת:
+
+`Python 3.9+`
+
+### התקנת הפרויקט ובדיקות
+
+```bash
+python -m pip install -e ".[test]"
+```
+
+### הרצה ללא רשת
+
+```bash
+python main.py
+```
+
+הרצה זו מדגימה את התהליך ללא צורך במפתח API אמיתי.
+
+### הרצה מול AbuseIPDB אמיתי
+
+Windows CMD:
+
+```cmd
+set ABUSEIPDB_API_KEY=YOUR_KEY
+python main.py --live --ip 8.8.8.8 --incident-id INC-001
+```
+
+PowerShell:
+
+```powershell
+$env:ABUSEIPDB_API_KEY="YOUR_KEY"
+python main.py --live --ip 8.8.8.8 --incident-id INC-001
+```
+
+### הרצת הבדיקות
+
+```bash
+python -m pytest -q
+```
+
+### GUI אופציונלי
+
+ה־GUI אינו חלק מדרישות החובה של הפרויקט, אך נוסף כ־Analyst Workbench אופציונלי.
+
+להתקנת התלויות:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+להפעלה:
+
+```bash
+python -m streamlit run streamlit_app.py
+```
+
+ניתן להריץ בו Enrichment במצב Offline או Live.
+
+נתוני GUI נוספים נשמרים ב־Streamlit Session בלבד; אין בפרויקט Database.
+
+---
+
+## 16. מבנה הפרויקט
+
+```text
+Soar-project/
+│
+├── data/
+│   ├── sample_data.jsonl
+│   └── remediation_tasks.jsonl
+│
+├── soc_case_manager/
+│   ├── __init__.py
+│   ├── api_client.py
+│   ├── async_processing.py
+│   ├── config.py
+│   ├── context_managers.py
+│   ├── integrated_reports.py
+│   ├── iterators.py
+│   ├── models.py
+│   ├── observers.py
+│   ├── processing.py
+│   ├── reports.py
+│   ├── repository.py
+│   ├── services.py
+│   ├── stage2_demo.py
+│   ├── strategies.py
+│   └── threaded_processing.py
+│
+├── tests/
+│   ├── test_api_client.py
+│   ├── test_async_processing.py
+│   ├── test_incident_assignment.py
+│   ├── test_incident_closure.py
+│   ├── test_integration.py
+│   ├── test_network_event_reputation.py
+│   ├── test_patterns.py
+│   ├── test_project.py
+│   ├── test_repository_pytest.py
+│   ├── test_services.py
+│   └── test_threaded_processing.py
+│
+├── .env.example
+├── .gitignore
+├── AI_USAGE.md
+├── main.py
+├── pyproject.toml
+├── README.md
+├── requirements.txt
+└── streamlit_app.py
+```
+
+### אחריות המודולים המרכזיים
+
+| קובץ | אחריות |
+|---|---|
+| `models.py` | המודל העסקי: Incident, Events, Task ו־RemediationPlan |
+| `repository.py` | קריאה ו־Validation של נתוני JSONL |
+| `processing.py` | מבני נתונים, תורים ועיבוד אוספים |
+| `iterators.py` | Iterator, Generator ו־Lazy Pipeline |
+| `context_managers.py` | Context Manager לחקירה |
+| `api_client.py` | תקשורת עם AbuseIPDB ואימות התגובה |
+| `services.py` | הלוגיקה העסקית של Reputation |
+| `strategies.py` | Strategy Pattern |
+| `observers.py` | Observer Pattern |
+| `async_processing.py` | עיבוד Async |
+| `threaded_processing.py` | Threads ו־Lock |
+| `reports.py` | ניהול Remediation ודוחות |
+| `integrated_reports.py` | המדד העסקי המשולב |
+| `stage2_demo.py` | תרחיש הדגמה של שלב 2 |
+| `streamlit_app.py` | GUI אופציונלי |
+
+---
+
+## 17. חלוקת אחריות בקבוצה
+
+הפרויקט פותח על ידי ארבעת חברי הקבוצה, תוך עבודה משותפת והיכרות עם התהליך הכולל.
+
+- **טל** — העלאת הרעיון למערכת והגדרת הקווים הכלליים לבנייתה. בשלב 2 עסק בהרחבת המערכת, בחיבור ל־AbuseIPDB ובהכנת המצגת.
+- **אסף** — בניית שלב 1 והרחבתו לפני ההגשה בהתאם לדרישות ולצרכים שהתגלו, וכן תכלול מקדים של שלב 2.
+- **גל** — השלמת שלב 1, ניהול חלוקת המשימות בשלב 2 ותכלול השלמת הדרישות של השלב.
+- **יניר** — תכלול מקדים ובניית שלב 2 יחד עם יתר חברי הקבוצה, וכן הרצת בדיקות וטסטים לצורך אימות המערכת.
+
+כל חברי הקבוצה היו מעורבים בתהליך המשותף ונדרשים להכיר את רכיבי המערכת, זרימת המידע והחלטות התכנון המרכזיות.
+
+---
+
+## 18. שימוש ב־AI
+
+השימוש ב־AI מתועד בנפרד ב־:
+
+`AI_USAGE.md`
+
+הקובץ מתאר:
+
+- יצירת נתוני הדגמה סינתטיים.
+- הצעות תכנון שנבדקו.
+- בדיקות ותיקונים שבוצעו.
+- תהליך ה־TDD.
+- אימות המימוש לאחר שימוש ב־AI.
+
+האחריות לבדיקת הקוד, הבנתו והתוצאה הסופית נשארת בידי חברי הקבוצה.
+
+---
+
+## Repository להגשה
+
+Repository:
+
+https://github.com/asaf0505-svg/Soar-project
+
+הגרסה הסופית להגשה נמצאת בענף:
+
+`gui/streamlit-dashboard`
+
+קישור ישיר לגרסה הסופית:
+
+https://github.com/asaf0505-svg/Soar-project/tree/gui/streamlit-dashboard
